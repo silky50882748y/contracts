@@ -48,3 +48,37 @@ contract.register_provider_license(provider_id, jurisdiction, license_number, va
   accepted; compact membership does not satisfy the prescription license check.
 - The `is_controlled_substance` flag is caller-supplied and not verified against a formulary.
   A future integration with a drug formulary contract can provide this verification.
+
+## Pending State
+
+Pending state is a change that has been proposed or approved but not yet executed. It stays
+stored after the reason for it has gone, so it can take effect later than the operator expects.
+
+This contract has no pending-admin, timelock, or proposer-removal flow of its own. The pending
+state that governs it sits in the governance contracts:
+
+| Pending state | Contract | Lifetime | Stale-state risk |
+|---|---|---|---|
+| Admin nomination (`PendingAdmin`) | `governance-voting` | 24 hours (`ADMIN_ROTATION_WINDOW`) | Nominee accepts after the admin's intent has changed and nobody cancels it |
+| Multisig action (`Proposal` per `action_id`) | `multisig-governance` | Proposal TTL | Approved action executes after the signer set has changed |
+| Upgrade proposal | `upgrade-governance` | 7-day voting window (`VOTING_WINDOW`), then 24-hour timelock (`TIMELOCK_DELAY`) | Reaches threshold and executes after the timelock |
+
+### Known Gaps
+
+- **Approved upgrades cannot be cancelled.** `ProposalStatus::Cancelled` is never assigned and
+  there is no cancel entry point. Once an upgrade is approved, the timelock is the only delay.
+- **Admin rotations emit no events.** `propose_admin_rotation`, `accept_admin_rotation`, and
+  `cancel_admin_rotation` publish nothing, and `PendingAdmin` has no getter. A nomination is
+  visible only through the transaction that created it.
+- **Signer changes do not reach open proposals.** `eligible_signers` is captured when a multisig
+  proposal is created. Do not assume a later signer removal applies to it.
+
+### Operator Checks
+
+1. After every admin or signer change, call `get_proposal` on each open multisig action and
+   confirm its approvers still match intent.
+2. Record each `propose_admin_rotation` with its ledger timestamp. The nomination stays live
+   until that timestamp plus 86,400 seconds, unless it is cancelled first.
+3. For each approved upgrade, record `approved_at + TIMELOCK_DELAY` and confirm the upgrade is
+   intended before that time.
+4. Before closing a rotation, confirm `cancel_admin_rotation` has run or the nomination has expired.
