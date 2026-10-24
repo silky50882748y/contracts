@@ -72,11 +72,14 @@ The repository includes `scripts/deploy_all.sh` for network-aware deployment and
   ./scripts/deploy_all.sh --network mainnet --skip-build
   ```
 
+- Contracts are configured at creation through `__constructor`. There is no separate initialize step, so do not invoke `initialize` after deploying. Pass constructor arguments with `DEPLOY_CONSTRUCTOR_ARGS`, which the script forwards after `--`. See [Constructor arguments](#constructor-arguments-__constructor).
+
 ### Manifest and contract IDs
 
 - The script writes deployed contract IDs to `deployments/<network>.json`.
+- The manifest `status` is `in_progress` while contracts are being deployed and changes to `COMPLETE` only after every contract in the deployment order has been deployed. A `COMPLETE` manifest is the gate for moving on; a partial run leaves `in_progress` and should be resumed or investigated, not used.
 - For Mainnet, record every deployed contract ID in `deployments/mainnet.json` before any production interaction.
-- Do not proceed with administrative or application transactions until the manifest is complete and verified.
+- Do not proceed with administrative or application transactions until the manifest is `COMPLETE` and verified.
 
 ### Mainnet deployment checklist
 
@@ -122,8 +125,10 @@ Examples of constructor arguments for the migrated contracts:
 
 ### Post-deployment verification
 
-- Confirm deployed contract IDs are accurate in `deployments/mainnet.json`.
-- Use Stellar Explorer / Horizon to compare the contract WASM hash with the local artifact.
+- Confirm the manifest `status` is `COMPLETE` before running any verification or smoke test.
+- Confirm deployed contract IDs are accurate in `deployments/<network>.json`.
+- Run `./scripts/verify-deployment.sh --manifest deployments/<network>.json`. It rebuilds the contracts from source and compares each local WASM hash with the `wasm_hash` recorded in the manifest. It does not read `status`, so check that yourself.
+- Use Stellar Explorer / Horizon to compare each contract's on-chain WASM hash with the local artifact.
 - Run a simple transaction against each deployed contract to ensure the contract is callable.
 
 ### Smoke test suggestions

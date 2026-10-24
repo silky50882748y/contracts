@@ -188,11 +188,11 @@ This script will:
 ```
 --network <name>           Network name (default: testnet)
 --identity <name>          Stellar CLI identity (default: from env)
---admin-address <address>  Admin address for contract initialization
+--admin-address <address>  Ignored; set constructor args via DEPLOY_CONSTRUCTOR_ARGS
 --dry-run                  Show deployment plan without executing
 --skip-build               Use existing WASM artifacts
 --skip-optimize            Skip WASM optimization
---skip-init                Don't initialize contracts after deployment
+--skip-init                Ignored; there is no separate init step
 --cli-bin <binary>         Stellar CLI binary (default: stellar)
 ```
 
@@ -204,22 +204,13 @@ stellar contract build --target wasm32-unknown-unknown --release
 stellar contract optimize --wasm target/wasm32-unknown-unknown/release/patient_registry.wasm
 ```
 
-2. Deploy to Stellar Testnet:
+2. Deploy to Stellar Testnet, passing the constructor arguments after `--`. Contracts bind their configuration at creation through `__constructor`, so there is no separate `initialize` call:
 ```bash
 stellar contract deploy \
   --wasm target/wasm32-unknown-unknown/release/patient_registry.optimized.wasm \
   --source admin \
-  --network testnet
-```
-
-3. Initialize contracts:
-```bash
-stellar contract invoke \
-  --id <CONTRACT_ID> \
-  --source admin \
   --network testnet \
-  -- initialize \
-  --admin <ADMIN_ADDRESS>
+  -- --admin <ADMIN_ADDRESS>
 ```
 
 #### Testnet Deployment Status
